@@ -3,6 +3,11 @@ const sdl = @cImport({ @cInclude("SDL2/SDL.h"); });
 const z80 = @cImport({ @cInclude("z80.h"); });
 
 pub extern fn SDL_PollEvent(event: *sdl.SDL_Event) c_int;
+const SDL_WINDOWPOS_UNDEFINED = @bitCast(c_int, sdl.SDL_WINDOWPOS_UNDEFINED_MASK);
+
+const ConsoleError = error {
+    SdlInit
+};
 
 // Memory
 // General purpose RAM
@@ -32,16 +37,29 @@ comptime {
 var cpu = initZ80(memRead, memWrite, ioRead, ioWrite);
 var ppu = initZ80(memRead, memWrite, ioRead, ioWrite);
 
-// Processor frequencies
+// The nano seconds per CPU clock
 const CPU_NANOS = 100;
+// The nano seconds per PPU clock
 const PPU_NANOS = 100;
+// The nano seconds per tick
 const TICK_NANOS = 100;
+// The nano seconds taken to draw a scanline
+const SCANLINE_DRAW_NANOS = 75000;
+// The nano seconds per hblank period
+const HBLANK_NANOS = 25000;
+// The nano seconds for the drawing each scanline and each hblank period
 const DRAW_NANOS = 25000000;
-const VBLANK_NANOS = DRAW_NANOS + 15000000;
-// How many times a second we should check to see if we should cycle the CPU/PPU
+// The nano seconds taken by vblank
+const VBLANK_NANOS = 15000000;
+const FRAME_NANOS = DRAW_NANOS + VBLANK_NANOS;
 var cpu_nanos: u32 = 0;
 var ppu_nanos: u32 = 0;
 var draw_nanos: u32 = 0;
+var scanline: u32 = 0;
+const RES_X = 250;
+const RES_Y = 240;
+const FINAL_SCANLINE = RES_Y;
+const PIXELS_IO_ADDR = 0;
 
 fn initZ80(mem_read: z80.Z80DataIn, mem_write: z80.Z80DataOut, io_read: z80.Z80DataIn, io_write: z80.Z80DataOut) z80.Z80Context {
     var ctx: z80.Z80Context = undefined;
@@ -54,14 +72,13 @@ fn initZ80(mem_read: z80.Z80DataIn, mem_write: z80.Z80DataOut, io_read: z80.Z80D
 
 fn getMappedMem(is_cpu: bool, address: u16) *u8 {
     if (is_cpu) {
-        std.debug.warn("CPU addr: {}\n", address);
         return switch (address) {
             0 ... CPU_ROM_SIZE - 1 => &cpu_rom[address],
             CPU_ROM_SIZE ... CPU_ROM_SIZE + GPR_RAM_SIZE - 1 => &gpr_ram[address - CPU_ROM_SIZE],
             else => unreachable
         };
     } else {
-        std.debug.warn("PPU addr: {}\n", address);
+        //std.debug.warn("PPU addr: {}, {}\n", address, ppu.nmi_req);
         return switch (address) {
             0 ... PPU_ROM_SIZE - 1 => &ppu_rom[address],
             PPU_ROM_SIZE ... PPU_ROM_SIZE + SPR_ROM_SIZE - 1 => &spr_rom[address - PPU_ROM_SIZE],
@@ -108,7 +125,35 @@ fn tick_processor(processor: *z80.Z80Context, curr_nanos: *u32, max_nanos: u32) 
         }
 }
 
-pub fn main() void {
+fn draw(renderer: *sdl.SDL_Renderer) void {
+    // Draw each pixel on the current scanline
+    var x: c_int = 0;
+    while (x < RES_X) : (x += 1) {
+        var ignored = sdl.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        ignored = sdl.SDL_RenderDrawPoint(renderer, x, @intCast(c_int, scanline));
+    }
+    sdl.SDL_RenderPresent(renderer);
+}
+
+pub fn main() !void {
+    std.debug.warn("ROM len: {}\n", ppu_rom.len);
+    for (ppu_rom) |rom_byte, i| {
+        std.debug.warn("Byte at {} is {}\n", i, rom_byte);
+    }
+    std.debug.warn("Byte at 0x66 {}\n", ppu_rom[0x66]);
+    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
+        return ConsoleError.SdlInit;
+    }
+    if (!(sdl.SDL_SetHintWithPriority(sdl.SDL_HINT_NO_SIGNAL_HANDLERS, c"1", sdl.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.SDL_bool.SDL_FALSE)) {
+        return ConsoleError.SdlInit;
+    }
+    const screen = sdl.SDL_CreateWindow(c"Console", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, RES_X, RES_Y, sdl.SDL_WINDOW_RESIZABLE);
+    const renderer = sdl.SDL_CreateRenderer(screen, -1, 0) orelse return ConsoleError.SdlInit;
+
+    var ignored = sdl.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    ignored = sdl.SDL_RenderClear(renderer);
+    sdl.SDL_RenderPresent(renderer);
+
     cpu.memParam = 1;
     cpu.ioParam = 1;
     z80.Z80RESET(&cpu);
@@ -119,10 +164,25 @@ pub fn main() void {
     while (true) {
         tick_processor(&cpu, &cpu_nanos, CPU_NANOS);
         tick_processor(&ppu, &ppu_nanos, PPU_NANOS);
-        if (draw_nanos == DRAW_NANOS) {
-            // draw    
+        if (draw_nanos == (SCANLINE_DRAW_NANOS * (scanline + 1)) + (HBLANK_NANOS * scanline)) {
+            // If we have reached the current scanline's hblank
+            draw(renderer);
+            scanline += 1;
+            //std.debug.warn("Going NMI on ppu {}\n", ppu.PC);
             z80.Z80NMI(&ppu);
-        } else if (draw_nanos >= VBLANK_NANOS) {
+            draw_nanos += TICK_NANOS;
+        } else if (draw_nanos == (SCANLINE_DRAW_NANOS * (scanline + 1)) + (HBLANK_NANOS * (scanline + 1))) {
+            // We have reached the end of current scanline's hblank
+            if (scanline == FINAL_SCANLINE) {
+                // We've reached VBLANK
+                scanline = 0;
+                //std.debug.warn("Going NMI on ppu {}\n", ppu.PC);
+                z80.Z80NMI(&ppu);
+            }
+            draw_nanos += TICK_NANOS;
+        } else if (draw_nanos == FRAME_NANOS) {
+            // We've reached the end of the entire frame
+            scanline = 0;
             draw_nanos = 0;
         } else {
             draw_nanos += TICK_NANOS;
