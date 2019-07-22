@@ -49,10 +49,12 @@ Sprite entry: 5B
 
 Sprite system v3
 Sprite ROM holds 256 sprite definitions. VRAM holds 256 sprite attributes, 4 colour palettes, 2 tile tables and 2 sprite tables.
-256 + 64 + 2 * 1920 + 640
+256 + 64 + 2 * 2700 + 640
 
 Sprite definition: 32B, 8x8 pixels
-Pixel: 4b, index into sprite's colour palette
+Pixel: 8b
+    * Index into palette: 4b
+    * Unused: 4b
 Colour palette: 16B, 16 colours
 Colour 1B:
     * Red: 3b
@@ -65,7 +67,7 @@ Sprite attribute: 1B
 	* Even updates only: 1b
 	* Unused: 1b
 Sprite table: 320B, 64 sprite entries
-Background table: 1920B, 32x30 tile entries
+Background table: 2700B, 32x30 tile entries
 Sprite entry: 5B
 	* X coord: 1B
 	* Y coord: 1B
@@ -75,8 +77,10 @@ Sprite entry: 5B
 	* Current y increment: 2b
 	* Colour palette: 2b
 	* Attribute no.: 1B
-Tile entry 2B:
+Tile entry 3B:
     * X coord: 5b
     * Y coord: 5b
     * Colour palette: 2b
-    * Unused: 4b
+    * Enabled: 1b
+    * Unused: 3b
+    * Sprite no.: 1B
