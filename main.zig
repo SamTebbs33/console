@@ -111,7 +111,7 @@ export fn ioWrite(param: c_int, address: c_ushort, byte: u8) void {
     getMappedIo(param == 1, address).* = byte;
 }
 
-fn drawSprite(renderer: *sdl.SDL_Renderer, sprite_addr: u16, palette_addr: u16, x: u8, y: u8) void {
+fn drawSprite(renderer: *sdl.SDL_Renderer, sprite_addr: u16, palette_addr: u16, x: u32, y: u32) void {
     var sprite_x: u8 = 0;
     while (sprite_x < SPRITE_WIDTH) : (sprite_x += 1) {
         var sprite_y: u8 = 0;
@@ -124,7 +124,7 @@ fn drawSprite(renderer: *sdl.SDL_Renderer, sprite_addr: u16, palette_addr: u16, 
             const green = if ((colour & 0b111000) == 0b111000) u8(255) else 0;
             const blue = if ((colour & 0b11000000) == 0b11000000) u8(255) else 0;
             var ignored = sdl.SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
-            ignored = sdl.SDL_RenderDrawPoint(renderer, x * SPRITE_WIDTH + sprite_x, y * SPRITE_HEIGHT + sprite_y);
+            ignored = sdl.SDL_RenderDrawPoint(renderer, @intCast(c_int, x + sprite_x), @intCast(c_int, y  + sprite_y));
         }
     }
 }
@@ -134,14 +134,16 @@ fn draw(renderer: *sdl.SDL_Renderer) void {
     var ignored = sdl.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     ignored = sdl.SDL_RenderClear(renderer);
     // Draw the background tiles
-    var tile_x: u8 = 0;
+    var tile_x: u32 = 0;
     const tile_table = 0;
     const tile_table_addr = TILE_TABLE_ADDR + tile_table * TILE_TABLE_SIZE;
     while (tile_x < NUM_TILES_X) : (tile_x += 1) {
-        var tile_y: u8 = 0;
+        var tile_y: u32 = 0;
         while (tile_y < NUM_TILES_Y) : (tile_y += 1) {
-            const tile_entry_addr = tile_table_addr + tile_x * NUM_TILES_Y + tile_y;
-            const tile_entry: u16 = vram[tile_entry_addr] | u16(vram[tile_entry_addr + 1]) << 8;
+            const tile_entry_num: u32 = tile_x * NUM_TILES_Y + tile_y;
+            const tile_entry_addr: u32 = tile_table_addr + (tile_entry_num * TILE_ENTRY_SIZE);
+            const tile_entry_addr_high: u32 = tile_entry_addr + 1;
+            const tile_entry: u16 = vram[tile_entry_addr] | u16(vram[tile_entry_addr_high]) << 8;
             const enabled = ((tile_entry >> 12) & 0b1) == 1;
             if (enabled) {
                 const tile_entry_x = tile_entry & 0b11111;
@@ -165,11 +167,15 @@ fn initGraphics() void {
         spr_rom[SPRITE_ADDR + sprite_num * SPRITE_SIZE + i] = 0;
     }
     // Set palettes
-    vram[PALETTE_ADDR] = 0b11111111;
+    vram[PALETTE_ADDR + PALETTE_SIZE] = 0b11111111;
+    vram[PALETTE_ADDR + 2 * PALETTE_SIZE] = 0b00011111;
     // Set tile table
     vram[TILE_TABLE_ADDR] = 0b00000 | 0b000 << 5;
-    vram[TILE_TABLE_ADDR + 1] = 0b00 | 0b00 << 2 | 0b1 << 4 | 0b000 << 5 ;
+    vram[TILE_TABLE_ADDR + 1] = 0b00 | 0b01 << 2 | 0b1 << 4 | 0b000 << 5 ;
     vram[TILE_TABLE_ADDR + 2] = 0b00000000;
+    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE] = 0b00000 | 0b000 << 5;
+    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 1] = 0b00 | 0b10 << 2 | 0b1 << 4 | 0b000 << 5 ;
+    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 2] = 0b00000000;
 }
 
 pub fn main() !void {
@@ -198,12 +204,11 @@ pub fn main() !void {
             if (event.@"type" == sdl.SDL_QUIT)
                 return;
         }
-        const ignored2 = z80.Z80ExecuteTStates(&cpu, CPU_CYCLES_PER_FRAME);
-        if (nanos == NANOS_PER_FRAME) {
+        const ignored2 = z80.Z80ExecuteTStates(&cpu, 10);
+        if (nanos >= NANOS_PER_FRAME) {
             draw(renderer);
             nanos = 0;
         }
         nanos += NANOS_PER_CPU_CYCLE;
-        std.time.sleep(NANOS_PER_CPU_CYCLE);
     }
 }
