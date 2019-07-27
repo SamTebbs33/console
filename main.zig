@@ -167,14 +167,14 @@ fn initGraphics() void {
         spr_rom[SPRITE_ADDR + sprite_num * SPRITE_SIZE + i] = 0;
     }
     // Set palettes
+    vram[PALETTE_ADDR] = 0b00011111;
     vram[PALETTE_ADDR + PALETTE_SIZE] = 0b11111111;
-    vram[PALETTE_ADDR + 2 * PALETTE_SIZE] = 0b00011111;
     // Set tile table
     vram[TILE_TABLE_ADDR] = 0b00000 | 0b000 << 5;
-    vram[TILE_TABLE_ADDR + 1] = 0b00 | 0b01 << 2 | 0b1 << 4 | 0b000 << 5 ;
+    vram[TILE_TABLE_ADDR + 1] = 0b00 | 0b00 << 2 | 0b1 << 4 | 0b000 << 5 ;
     vram[TILE_TABLE_ADDR + 2] = 0b00000000;
     vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE] = 0b00000 | 0b000 << 5;
-    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 1] = 0b00 | 0b10 << 2 | 0b1 << 4 | 0b000 << 5 ;
+    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 1] = 0b00 | 0b01 << 2 | 0b1 << 4 | 0b000 << 5 ;
     vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 2] = 0b00000000;
 }
 
@@ -204,11 +204,8 @@ pub fn main() !void {
             if (event.@"type" == sdl.SDL_QUIT)
                 return;
         }
-        const ignored2 = z80.Z80ExecuteTStates(&cpu, 10);
-        if (nanos >= NANOS_PER_FRAME) {
-            draw(renderer);
-            nanos = 0;
-        }
-        nanos += NANOS_PER_CPU_CYCLE;
+        const ignored2 = z80.Z80ExecuteTStates(&cpu, CPU_CYCLES_PER_FRAME);
+        draw(renderer);
+        z80.Z80NMI(&cpu);
     }
 }
