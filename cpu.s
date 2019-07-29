@@ -22,7 +22,7 @@ endm
 pad_until 0x66
 frame_nmi:
     ld a, e
-    and a
+    cp 128
     jp nz, return
 toggle:
     in d, (c)

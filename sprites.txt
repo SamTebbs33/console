@@ -25,7 +25,7 @@ Sprite table: 320B, 64 sprite entries
 			* Max x increment: 2b
 			* Max y increment: 2b
 			* Even updates only: 1b
-			* Unused: 1b
+			* Enabled: 1b
 
 Tile table: 2700B, 30x30 tile entries
 	Tile entry 3B:

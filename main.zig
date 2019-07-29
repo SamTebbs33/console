@@ -35,7 +35,15 @@ const SPRITE_SIZE = SPRITE_WIDTH * SPRITE_HEIGHT * PIXEL_SIZE;
 const PIXEL_SIZE = 1;
 const PALETTE_ADDR = TILE_TABLE_ADDR + TILE_TABLE_SIZE * NUM_TILE_TABLES;
 const PALETTE_SIZE = 16 * COLOUR_SIZE;
+const NUM_PALETTES = 4;
+const ATTRIBUTE_ADDR = PALETTE_ADDR + NUM_PALETTES * PALETTE_SIZE;
+const ATTRIBUTE_SIZE = 1;
+const NUM_ATTRIBUTES = 256;
 const COLOUR_SIZE = 1;
+const SPRITE_TABLE_ADDR = ATTRIBUTE_ADDR + NUM_ATTRIBUTES * ATTRIBUTE_SIZE;
+const NUM_SPRITE_ENTRIES = 64;
+const SPRITE_ENTRY_SIZE = 5;
+const SPRITE_TABLE_SIZE = NUM_SPRITE_ENTRIES * SPRITE_ENTRY_SIZE;
 
 comptime {
     std.debug.assert(cpu_rom.len <= CPU_ROM_SIZE);
@@ -54,6 +62,7 @@ const NUM_TILES_Y = RES_Y / SPRITE_HEIGHT;
 const FPS = 50;
 const NANOS_PER_CPU_CYCLE = 100;
 const NANOS_PER_FRAME = 1000000000 / FPS;
+const MILLIS_PER_FRAME = NANOS_PER_FRAME / 1000000;
 const CPU_CYCLES_PER_FRAME = NANOS_PER_FRAME / NANOS_PER_CPU_CYCLE;
 var nanos: u64 = 0;
 
@@ -129,7 +138,7 @@ fn drawSprite(renderer: *sdl.SDL_Renderer, sprite_addr: u16, palette_addr: u16, 
     }
 }
 
-fn draw(renderer: *sdl.SDL_Renderer) void {
+fn draw(renderer: *sdl.SDL_Renderer, frames: u32) void {
     // Clear the screen first
     var ignored = sdl.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     ignored = sdl.SDL_RenderClear(renderer);
@@ -156,6 +165,36 @@ fn draw(renderer: *sdl.SDL_Renderer) void {
             }
         }
     }
+
+    // Draw the sprites
+    var i: u32 = 0;
+    const table_addr = SPRITE_TABLE_ADDR + 0 * SPRITE_TABLE_SIZE;
+    while (i < NUM_SPRITE_ENTRIES) : (i += 1) {
+        const entry_addr = table_addr + i * SPRITE_ENTRY_SIZE;
+        const x: u8 = vram[entry_addr];
+        const y: u8 = vram[entry_addr + 1];
+        const sprite_num: u8 = vram[entry_addr + 2];
+        const sprite_num_inc: u8 = vram[entry_addr + 3] & 0b11;
+        const x_inc: u8 = (vram[entry_addr + 3] & 0b1100) >> 2;
+        const y_inc: u8 = (vram[entry_addr + 3] & 0b110000) >> 4;
+        const palette = (vram[entry_addr + 3] & 0b11000000) >> 6;
+        const attr = vram[entry_addr + 4];
+        const attr_addr = u32(ATTRIBUTE_ADDR) + attr * ATTRIBUTE_SIZE;
+        const attr_enabled: bool = (vram[attr_addr] & 0b10000000) != 0;
+        if (attr_enabled) {
+            const palette_addr = u16(PALETTE_ADDR) + palette * PALETTE_SIZE;
+            drawSprite(renderer, SPRITE_ADDR + (sprite_num + sprite_num_inc) * SPRITE_SIZE, palette_addr, x + x_inc, y + y_inc);
+            const attr_fourth_too = vram[attr_addr] & 0b01000000 != 0;
+            if ((attr_fourth_too and frames % 4 == 0) or frames % 8 == 0) {
+                var new_x_inc: u2 = @truncate(u2, ((vram[entry_addr + 3] & 0b1100) >> 2) + 1);
+                const max_x_inc: u2 = @truncate(u2, (vram[attr_addr] & 0b1100) >> 2);
+                if (new_x_inc > max_x_inc) {
+                    new_x_inc = 0;
+                }
+                vram[entry_addr + 3] = (vram[entry_addr + 3] & 0b11110011) | (@intCast(u8, new_x_inc) << 2);
+            }
+        }
+    }
     sdl.SDL_RenderPresent(renderer);
 }
 
@@ -176,6 +215,19 @@ fn initGraphics() void {
     vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE] = 0b00000 | 0b000 << 5;
     vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 1] = 0b00 | 0b01 << 2 | 0b1 << 4 | 0b000 << 5 ;
     vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 2] = 0b00000000;
+
+    // Set other sprites
+    while (i < SPRITE_SIZE) : (i += 1) {
+        spr_rom[SPRITE_ADDR + 1 * SPRITE_SIZE + i] = 1;
+    }
+    vram[SPRITE_TABLE_ADDR] = 9;
+    vram[SPRITE_TABLE_ADDR + 1] = 9;
+    vram[SPRITE_TABLE_ADDR + 2] = 0;
+    vram[SPRITE_TABLE_ADDR + 3] = 0;
+    vram[SPRITE_TABLE_ADDR + 4] = 0;
+
+    // Set atributes
+    vram[ATTRIBUTE_ADDR] = 0b11111100;
 }
 
 pub fn main() !void {
@@ -198,14 +250,31 @@ pub fn main() !void {
 
     initGraphics();
 
+    var last_update = std.time.milliTimestamp();
+    var last_frame: u64 = std.time.milliTimestamp();
+    var frames: u32 = 0;
     while (true) {
         var event: sdl.SDL_Event = undefined;
         if (SDL_PollEvent(&event) != 0) {
             if (event.@"type" == sdl.SDL_QUIT)
                 return;
         }
+
         const ignored2 = z80.Z80ExecuteTStates(&cpu, CPU_CYCLES_PER_FRAME);
-        draw(renderer);
+        draw(renderer, frames);
         z80.Z80NMI(&cpu);
+
+        var time = std.time.milliTimestamp();
+        const nanos_since_last_frame = (time - last_frame) * 1000000;
+        last_frame = time;
+        if (nanos_since_last_frame < NANOS_PER_FRAME) {
+            std.time.sleep(NANOS_PER_FRAME - nanos_since_last_frame);
+        }
+        frames += 1;
+        time = std.time.milliTimestamp();
+        if (time - last_update >= 1000) {
+            frames = 0;
+            last_update = time;
+        }
     }
 }
