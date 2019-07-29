@@ -1,0 +1,26 @@
+CPU memmap
+| start |  end  | size |      function       |
+| ----- | ----- | ---- | ------------------- |
+| 0000  | 7FFF  | 32KB | CPU ROM (cartridge) |
+| 8000  | FFFF  | 32KB | CPU RAM             |
+
+CPU iomap
+| start |  end  | size |      function       |
+| ----- | ----- | ---- | ------------------- |
+| 0000  | 1FFF  | 8KB  | VRAM                |
+| 2000  | FFFF  | 56KB | Usable by cartridge |
+
+PPU memmap
+| start |  end  | size |      function       |
+| ----- | ----- | ---- | ------------------- |
+| 0000  | 1FFF  | 8KB  | PPU ROM (firmware)  |
+| 2000  | 3FFF  | 8KB  | VRAM                |
+| 4000  | 5FFF  | 8KB  | SPR ROM (cartridge) |
+
+VRAM map
+| start |  end  | size |      function       |
+| ----- | ----- | ---- | ------------------- |
+| 0000  | 00FF  | 256B | Sprite attributes   |
+| 0100  | 013F  | 64B  | Colour palettes     |
+| 0140  | 1657  | 5400B| Tile tables         |
+| 1658  | 18D7  | 640B | Sprite tables       |
