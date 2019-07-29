@@ -1,86 +1,37 @@
-Sprite system v1
-VRAM holds 256 sprite definitions (16KB), 4 sprite attributes (4 bytes) and 4 sprite tables (15360B). Total 31748B
-
-Sprite definition: 64B, 8x8 pixels
-Pixel: 1B
-	* Red: 3b
-	* Green: 3b
-	* Blue: 2b
-Sprite attribute: 1B
-	* Max no. increment: 2b
-	* Max x increment: 2b
-	* Max y increment: 2b
-	* Even updates only: 1b
-	* Unused: 1b
-Sprite table: 3840B, 32x30 sprite entries
-Sprite entry: 4B
-	* X coord: 1B
-	* Y coord: 1B
-	* Sprite no.: 1B
-	* Current sprite no. increment: 2b
-	* Current x increment: 2b
-	* Current y increment: 2b
-	* Attribute no.: 2b
-
-Sprite system v2
-VRAM holds 256 sprite definitions (16KB), 256 sprite attributes (256 bytes) and 4 sprite tables (19200B). Total 35840B
-
-Sprite definition: 64B, 8x8 pixels
-Pixel: 1B
-	* Red: 3b
-	* Green: 3b
-	* Blue: 2b
-Sprite attribute: 1B
-	* Max no. increment: 2b
-	* Max x increment: 2b
-	* Max y increment: 2b
-	* Even updates only: 1b
-	* Unused: 1b
-Sprite table: 4800B, 32x30 sprite entries
-Sprite entry: 5B
-	* X coord: 1B
-	* Y coord: 1B
-	* Sprite no.: 1B
-	* Current sprite no. increment: 2b
-	* Current x increment: 2b
-	* Current y increment: 2b
-	* Unused: 2b
-	* Attribute no.: 1B
-
 Sprite system v3
 Sprite ROM holds 256 sprite definitions. VRAM holds 256 sprite attributes, 4 colour palettes, 2 tile tables and 2 sprite tables.
-256 + 64 + 2 * 2700 + 640
 
 Sprite definition: 32B, 8x8 pixels
-Pixel: 8b
-    * Index into palette: 4b
-    * Unused: 4b
+	Pixel: 8b
+		* Index into palette: 4b
+		* Unused: 4b
 Colour palette: 16B, 16 colours
-Colour 1B:
-    * Red: 3b
-    * Green: 3b
-    * Blue: 2b
-Sprite attribute: 1B
-	* Max no. increment: 2b
-	* Max x increment: 2b
-	* Max y increment: 2b
-	* Even updates only: 1b
-	* Unused: 1b
+	Colour 1B:
+		* Red: 3b
+		* Green: 3b
+		* Blue: 2b
 Sprite table: 320B, 64 sprite entries
-Background table: 2700B, 32x30 tile entries
-Sprite entry: 5B
-	* X coord: 1B
-	* Y coord: 1B
-	* Sprite no.: 1B
-	* Current sprite no. increment: 2b
-	* Current x increment: 2b
-	* Current y increment: 2b
-	* Colour palette: 2b
-	* Attribute no.: 1B
-Tile entry 3B:
-    * X coord: 5b
-    * Y coord: 5b
-    * Colour palette: 2b
-    * Enabled: 1b
-    * Unused: 3b
-    * Sprite no.: 1B
+	Sprite entry: 5B
+		* X coord: 1B
+		* Y coord: 1B
+		* Sprite no.: 1B
+		* Current sprite no. increment: 2b
+		* Current x increment: 2b
+		* Current y increment: 2b
+		* Colour palette: 2b
+		* Attribute no.: 1B
+		Sprite attribute: 1B
+			* Max no. increment: 2b
+			* Max x increment: 2b
+			* Max y increment: 2b
+			* Even updates only: 1b
+			* Unused: 1b
+
+Tile table: 2700B, 30x30 tile entries
+	Tile entry 3B:
+		* X coord: 5b
+		* Y coord: 5b
+		* Colour palette: 2b
+		* Enabled: 1b
+		* Unused: 3b
+		* Sprite no.: 1B
