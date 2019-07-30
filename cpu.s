@@ -1,4 +1,4 @@
-include common.s
+include "common.s"
 
 start:
     org 0

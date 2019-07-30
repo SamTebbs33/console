@@ -1,4 +1,4 @@
-include common.s
+include "common.s"
 
 org 0
 ld sp, stack_bottom
