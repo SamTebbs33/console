@@ -2,8 +2,7 @@
 start:
     org 0
     ld sp, stack_bottom
-    ld b, 0x35
-    ld c, 0x18
+    ld bc, 0x3518
     ld e, 60
     jp $
 
@@ -23,16 +22,14 @@ pad_until 0x66
 frame_nmi:
     ld a, e
     cp 128
-    jp nz, return
-toggle:
-    in d, (c)
-    ld a, d
-    cpl
-    ld d, a
-    out (c), d
-    ld e, 0
-return:
+    jp z, toggle
     inc e
+    ret
+toggle:
+    in a, (c)
+    cpl
+    out (c), a
+    ld e, 0
     ret
 
 pad_until 0x100
