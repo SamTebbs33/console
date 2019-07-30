@@ -24,14 +24,15 @@ Sprite table: 320B, 64 sprite entries
 			* Max no. increment: 2b
 			* Max x increment: 2b
 			* Max y increment: 2b
-			* Even updates only: 1b
+			* Every fourth update too: 1b
 			* Enabled: 1b
 
-Tile table: 2700B, 30x30 tile entries
-	Tile entry 3B:
-		* X coord: 5b
-		* Y coord: 5b
+Tile table: 1800B, 30x30 tile entries
+	Tile entry 2B:
 		* Colour palette: 2b
 		* Enabled: 1b
-		* Unused: 3b
+		* Unused: 5b
 		* Sprite no.: 1B
+
+Tools:
+    * PNG files to sprite ROM

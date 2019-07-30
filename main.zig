@@ -29,7 +29,7 @@ var ppu_rom = @embedFile("ppu.bin");
 const TILE_TABLE_ADDR = 0;
 const TILE_TABLE_SIZE = NUM_TILES_X * NUM_TILES_Y * TILE_ENTRY_SIZE;
 const NUM_TILE_TABLES = 2;
-const TILE_ENTRY_SIZE = 3;
+const TILE_ENTRY_SIZE = 2;
 const SPRITE_ADDR = 0;
 const SPRITE_SIZE = SPRITE_WIDTH * SPRITE_HEIGHT * PIXEL_SIZE;
 const PIXEL_SIZE = 1;
@@ -153,12 +153,10 @@ fn draw(renderer: *sdl.SDL_Renderer, frames: u32) void {
             const tile_entry_addr: u32 = tile_table_addr + (tile_entry_num * TILE_ENTRY_SIZE);
             const tile_entry_addr_high: u32 = tile_entry_addr + 1;
             const tile_entry: u16 = vram[tile_entry_addr] | u16(vram[tile_entry_addr_high]) << 8;
-            const enabled = ((tile_entry >> 12) & 0b1) == 1;
+            const enabled = ((tile_entry >> 2) & 0b1) == 1;
             if (enabled) {
-                const tile_entry_x = tile_entry & 0b11111;
-                const tile_entry_y = (tile_entry >> 5) & 0b11111;
-                const palette = (tile_entry >> 10) & 0b11;
-                const sprite_num = vram[tile_entry_addr + 2];
+                const palette = tile_entry & 0b11;
+                const sprite_num = vram[tile_entry_addr + 1];
                 const sprite_addr = SPRITE_ADDR + sprite_num * SPRITE_SIZE;
                 const palette_addr = PALETTE_ADDR + palette * PALETTE_SIZE;
                 drawSprite(renderer, sprite_addr, palette_addr, tile_x * SPRITE_WIDTH, tile_y * SPRITE_HEIGHT);
@@ -209,12 +207,10 @@ fn initGraphics() void {
     vram[PALETTE_ADDR] = 0b00011111;
     vram[PALETTE_ADDR + PALETTE_SIZE] = 0b11111111;
     // Set tile table
-    vram[TILE_TABLE_ADDR] = 0b00000 | 0b000 << 5;
-    vram[TILE_TABLE_ADDR + 1] = 0b00 | 0b00 << 2 | 0b1 << 4 | 0b000 << 5 ;
-    vram[TILE_TABLE_ADDR + 2] = 0b00000000;
-    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE] = 0b00000 | 0b000 << 5;
-    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 1] = 0b00 | 0b01 << 2 | 0b1 << 4 | 0b000 << 5 ;
-    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 2] = 0b00000000;
+    vram[TILE_TABLE_ADDR] = 0b00 | 0b1 << 2;
+    vram[TILE_TABLE_ADDR + 1] = 0b00000000;
+    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE] = 0b01 | 0b1 << 2;
+    vram[TILE_TABLE_ADDR + NUM_TILES_Y * TILE_ENTRY_SIZE + 1] = 0b00000000;
 
     // Set other sprites
     while (i < SPRITE_SIZE) : (i += 1) {

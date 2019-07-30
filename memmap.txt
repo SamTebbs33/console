@@ -22,5 +22,5 @@ VRAM map
 | ----- | ----- | ---- | ------------------- |
 | 0000  | 00FF  | 256B | Sprite attributes   |
 | 0100  | 013F  | 64B  | Colour palettes     |
-| 0140  | 1657  | 5400B| Tile tables         |
-| 1658  | 18D7  | 640B | Sprite tables       |
+| 0140  | 0F4F  | 3600B| Tile tables         |
+| 0F50  | 11CF  | 640B | Sprite tables       |
