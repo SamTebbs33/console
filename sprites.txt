@@ -1,8 +1,8 @@
 Sprite system v3
 Sprite ROM holds 256 sprite definitions. VRAM holds 256 sprite attributes, 4 colour palettes, 2 tile tables and 2 sprite tables.
 
-Sprite definition: 32B, 8x8 pixels
-	Pixel: 8b
+Sprite definition: 64B, 8x8 pixels
+	Pixel: 1B
 		* Index into palette: 4b
 		* Unused: 4b
 Colour palette: 16B, 16 colours
