@@ -8,6 +8,7 @@ start:
     jp $
 
 pad_until 0x66
+; Frame sync. It's here that the CPU can update VRAM
 frame_nmi:
     ret
 

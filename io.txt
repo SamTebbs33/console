@@ -1,0 +1,15 @@
+It has not yet been decided exactly what chip will serve as the interface between the CPU and IO devices, for now the CPU will just read in bytes from IO space.
+
+Controller
+| Bit | Button |
+| --- | ------ |
+|  0  |   Up   |
+|  1  |  Down  |
+|  2  |  Left  |
+|  3  |  Right |
+|  4  |    A   |
+|  5  |    B   |
+|  6  |    C   |
+|  7  |  Start |
+
+Low = pressed, high = not pressed

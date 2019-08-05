@@ -44,6 +44,18 @@ const TileEntry = packed struct {
 };
 const TileTable = [NUM_TILES_Y][NUM_TILES_X]TileEntry;
 
+const Button = enum {
+    up,
+    down,
+    left,
+    right,
+    a,
+    b,
+    c,
+    start
+};
+var buttons = [_]bool{false} ** @memberCount(Button);
+
 // Memory
 // General purpose RAM
 const GPR_RAM_SIZE = 64 * 1024 - CPU_ROM_SIZE;
@@ -60,6 +72,9 @@ var cpu_rom = @embedFile("cpu.bin");
 // PPU firmware ROM
 const PPU_ROM_SIZE = 8 * 1024;
 var ppu_rom = @embedFile("ppu.bin");
+// Bytes used by controller
+const CONTROLLER_SIZE = 1;
+var controller_byte: u8 = 0;
 
 const NUM_TILE_TABLES = 2;
 const NUM_PALETTES = 4;
@@ -70,6 +85,7 @@ const NUM_SPRITE_ENTRIES = 64;
 const CPU_ROM_ADDR = 0;
 const CPU_RAM_ADDR = CPU_ROM_SIZE;
 const CPU_IO_VRAM_ADDR = 0;
+const CPU_IO_CONTROLLER_ADDR = CPU_IO_VRAM_ADDR + VRAM_SIZE;
 
 // PPU mem and io map
 const PPU_ROM_ADDR = 0;
@@ -151,6 +167,7 @@ fn getMappedIo(is_cpu: bool, address: u16) *u8 {
     if (is_cpu) {
         return switch (address) {
             0 ... VRAM_SIZE - 1 => &vram[address],
+            VRAM_SIZE ... VRAM_SIZE + CONTROLLER_SIZE => &controller_byte,
             else => unreachable
         };
     } else {
@@ -279,6 +296,38 @@ fn draw(renderer: *sdl.SDL_Renderer, frames: u32) void {
     sdl.SDL_RenderPresent(renderer);
 }
 
+fn getControllerState() u8 {
+    var result: u8 = 0;
+    for (buttons) |pressed, i| {
+        if (!pressed) result |= u8(1) << @intCast(u3, i);
+    }
+    return result;
+}
+
+fn scancodeToButton(scancode: c_int) ?Button {
+    return switch (scancode) {
+        sdl.SDL_SCANCODE_LEFT => Button.left,
+        sdl.SDL_SCANCODE_RIGHT => Button.right,
+        sdl.SDL_SCANCODE_UP => Button.up,
+        sdl.SDL_SCANCODE_DOWN => Button.down,
+        sdl.SDL_SCANCODE_A => Button.a,
+        sdl.SDL_SCANCODE_S => Button.b,
+        sdl.SDL_SCANCODE_D => Button.c,
+        sdl.SDL_SCANCODE_ESCAPE => Button.start,
+        else => null
+    };
+}
+
+fn updateControllerState(event: *sdl.SDL_Event) void {
+    if (scancodeToButton(@enumToInt(event.key.keysym.scancode))) |button| {
+        switch (event.@"type") {
+            sdl.SDL_KEYUP => buttons[@enumToInt(button)] = false,
+            sdl.SDL_KEYDOWN => buttons[@enumToInt(button)] = true,
+            else => unreachable
+        }
+    }
+}
+
 pub fn main() !void {
     if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
         return ConsoleError.SdlInit;
@@ -301,12 +350,9 @@ pub fn main() !void {
     var last_frame: u64 = std.time.milliTimestamp();
     var frames: u32 = 0;
     while (true) {
-        var event: sdl.SDL_Event = undefined;
-        if (SDL_PollEvent(&event) != 0) {
-            if (event.@"type" == sdl.SDL_QUIT)
-                return;
-        }
-
+        controller_byte = getControllerState();
+        buttons = [_]bool{false} ** @memberCount(Button);
+        if (controller_byte != 255) std.debug.warn("controller: {}\n", controller_byte);
         const ignored2 = z80.Z80ExecuteTStates(&cpu, CPU_CYCLES_PER_FRAME);
         draw(renderer, frames);
         z80.Z80NMI(&cpu);
@@ -318,10 +364,20 @@ pub fn main() !void {
             frames = 0;
             last_update = time;
         }
-        const nanos_since_last_frame = (time - last_frame) * 1000000;
+        var nanos_since_last_frame = (time - last_frame) * 1000000;
         last_frame = time;
-        if (nanos_since_last_frame < NANOS_PER_FRAME) {
-            std.time.sleep((NANOS_PER_FRAME - nanos_since_last_frame) * 2);
+        while (nanos_since_last_frame < NANOS_PER_FRAME) {
+            var event: sdl.SDL_Event = undefined;
+            if (SDL_PollEvent(&event) != 0) {
+                if (event.@"type" == sdl.SDL_QUIT) {
+                    return;
+                } else {
+                    updateControllerState(&event);
+                }
+            }
+            // Sleep a millisecond
+            std.time.sleep(1000);
+            nanos_since_last_frame = (std.time.milliTimestamp() - last_frame) * 1000000;
         }
     }
 }

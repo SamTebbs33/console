@@ -8,7 +8,8 @@ CPU iomap
 | start |  end  | size |      function       |
 | ----- | ----- | ---- | ------------------- |
 | 0000  | 1FFF  | 8KB  | VRAM                |
-| 2000  | FFFF  | 56KB | Usable by cartridge |
+| 2000  | 2000  | 1B   | Controller          |
+| 2001  | FFFF  | ~56KB| Usable by cartridge |
 
 PPU memmap
 | start |  end  | size |      function       |
