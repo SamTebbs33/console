@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const sdl = @cImport({ @cInclude("SDL2/SDL.h"); });
 const z80 = @cImport({ @cInclude("z80.h"); });
+const types = @import("types.zig");
 
 pub extern fn SDL_PollEvent(event: *sdl.SDL_Event) c_int;
 const SDL_WINDOWPOS_UNDEFINED = @bitCast(c_int, sdl.SDL_WINDOWPOS_UNDEFINED_MASK);
@@ -10,41 +11,7 @@ const ConsoleError = error {
     SdlInit
 };
 
-const Pixel = u8;
-const SpriteDef = [SPRITE_HEIGHT][SPRITE_WIDTH]Pixel;
-const Colour = packed struct {
-    red: u3,
-    green: u3,
-    blue: u2
-};
-const ColourPalette = [16]Colour;
-const SpriteEntry = packed struct {
-    x: u8,
-    y: u8,
-    sprite: u8,
-    sprite_inc: u2,
-    x_inc: u2,
-    y_inc: u2,
-    palette: u2,
-    attribute: u8
-};
-const SpriteAttribute = packed struct {
-    sprite_max_inc: u2,
-    x_max_inc: u2,
-    y_max_inc: u2,
-    fourth_frame_too: bool,
-    enabled: bool
-};
-const SpriteTable = [NUM_SPRITE_ENTRIES]SpriteEntry;
-const TileEntry = packed struct {
-    palette: u2,
-    enabled: bool,
-    unused: u5,
-    sprite: u8
-};
-const TileTable = [NUM_TILES_Y][NUM_TILES_X]TileEntry;
-
-const Button = enum {
+pub const Button = enum {
     up,
     down,
     left,
@@ -62,24 +29,19 @@ const GPR_RAM_SIZE = 64 * 1024 - CPU_ROM_SIZE;
 var gpr_ram = [_]u8{0} ** GPR_RAM_SIZE;
 // Sprite ROM
 const SPR_ROM_SIZE = 8 * 1024;
-var spr_rom = [_]u8{0} ** SPR_ROM_SIZE;
+var spr_rom = @embedFile("../sprites.bin");
 // VRAM
 const VRAM_SIZE = 8 * 1024;
 var vram = [_]u8{0} ** VRAM_SIZE;
 // CPU firmware ROM
 const CPU_ROM_SIZE = 32 * 1024;
-var cpu_rom = @embedFile("cpu.bin");
+var cpu_rom = @embedFile("../cpu.bin");
 // PPU firmware ROM
 const PPU_ROM_SIZE = 8 * 1024;
-var ppu_rom = @embedFile("ppu.bin");
+var ppu_rom = @embedFile("../ppu.bin");
 // Bytes used by controller
 const CONTROLLER_SIZE = 1;
 var controller_byte: u8 = 0;
-
-const NUM_TILE_TABLES = 2;
-const NUM_PALETTES = 4;
-const NUM_ATTRIBUTES = 256;
-const NUM_SPRITE_ENTRIES = 64;
 
 // CPU mem and io map
 const CPU_ROM_ADDR = 0;
@@ -94,19 +56,13 @@ const PPU_SPROM_ADDR = PPU_VRAM_ADDR + VRAM_SIZE;
 
 // VRAM offsets after VRAM address
 const VRAM_ATTR_OFFSET = 0;
-const VRAM_PALETTE_OFFSET = VRAM_ATTR_OFFSET + NUM_ATTRIBUTES * @sizeOf(SpriteAttribute);
-const VRAM_TILE_TABLE_OFFSET = VRAM_PALETTE_OFFSET + NUM_PALETTES * @sizeOf(ColourPalette);
-const VRAM_SPRITE_TABLE_OFFSET = VRAM_TILE_TABLE_OFFSET + NUM_TILE_TABLES * @sizeOf(TileTable);
+const VRAM_PALETTE_OFFSET = VRAM_ATTR_OFFSET + types.NUM_ATTRIBUTES * @sizeOf(types.SpriteAttribute);
+const VRAM_TILE_TABLE_OFFSET = VRAM_PALETTE_OFFSET + types.NUM_PALETTES * @sizeOf(types.ColourPalette);
+const VRAM_SPRITE_TABLE_OFFSET = VRAM_TILE_TABLE_OFFSET + types.NUM_TILE_TABLES * @sizeOf(types.TileTable);
 
 // Processors
 var cpu = initZ80(memRead, memWrite, ioRead, ioWrite);
 
-const RES_X = 240;
-const RES_Y = 240;
-const SPRITE_WIDTH = 8;
-const SPRITE_HEIGHT = 8;
-const NUM_TILES_X = RES_X / SPRITE_WIDTH;
-const NUM_TILES_Y = RES_Y / SPRITE_HEIGHT;
 const FPS = 50;
 const NANOS_PER_CPU_CYCLE = 100;
 const NANOS_PER_FRAME = 1000000000 / FPS;
@@ -117,16 +73,17 @@ var nanos: u64 = 0;
 comptime {
     assert(cpu_rom.len <= CPU_ROM_SIZE);
     assert(ppu_rom.len <= PPU_ROM_SIZE);
+    assert(spr_rom.len <= SPR_ROM_SIZE);
 
-    assert(@sizeOf(Pixel) == 1);
-    assert(@sizeOf(Colour) == 1);
-    assert(@sizeOf(ColourPalette) == 16);
-    assert(@sizeOf(SpriteTable) == 320);
-    assert(@sizeOf(SpriteEntry) == 5);
-    assert(@sizeOf(SpriteAttribute) == 1);
-    assert(@sizeOf(TileTable) == 1800);
-    assert(@sizeOf(TileEntry) == 2);
-    assert(@sizeOf(SpriteDef) == 64);
+    assert(@sizeOf(types.Pixel) == 1);
+    assert(@sizeOf(types.Colour) == 1);
+    assert(@sizeOf(types.ColourPalette) == 16);
+    assert(@sizeOf(types.SpriteTable) == 320);
+    assert(@sizeOf(types.SpriteEntry) == 5);
+    assert(@sizeOf(types.SpriteAttribute) == 1);
+    assert(@sizeOf(types.TileTable) == 1800);
+    assert(@sizeOf(types.TileEntry) == 2);
+    assert(@sizeOf(types.SpriteDef) == 64);
 }
 
 fn memAddrToType(comptime t: type, addr: u16, is_cpu: bool) *t {
@@ -191,56 +148,56 @@ export fn ioWrite(param: c_int, address: c_ushort, byte: u8) void {
     getMappedIo(param == 1, address).* = byte;
 }
 
-fn getSpriteTable(comptime is_cpu: bool, table: u16) *SpriteTable {
-    const offset = VRAM_SPRITE_TABLE_OFFSET + @sizeOf(SpriteTable) * table;
+fn getSpriteTable(comptime is_cpu: bool, table: u16) *types.SpriteTable {
+    const offset = VRAM_SPRITE_TABLE_OFFSET + @sizeOf(types.SpriteTable) * table;
     if (is_cpu) {
-        return ioAddrToType(SpriteTable, CPU_IO_VRAM_ADDR + offset, true);
+        return ioAddrToType(types.SpriteTable, CPU_IO_VRAM_ADDR + offset, true);
     } else {
-        return memAddrToType(SpriteTable, PPU_VRAM_ADDR + offset, false);
+        return memAddrToType(types.SpriteTable, PPU_VRAM_ADDR + offset, false);
     }
 }
 
-fn getTileTable(comptime is_cpu: bool, table: u16) *TileTable {
-    const offset = VRAM_TILE_TABLE_OFFSET + @sizeOf(TileTable) * table;
+fn getTileTable(comptime is_cpu: bool, table: u16) *types.TileTable {
+    const offset = VRAM_TILE_TABLE_OFFSET + @sizeOf(types.TileTable) * table;
     if (is_cpu) {
-        return ioAddrToType(TileTable, CPU_IO_VRAM_ADDR + offset, true);
+        return ioAddrToType(types.TileTable, CPU_IO_VRAM_ADDR + offset, true);
     } else {
-        return memAddrToType(TileTable, PPU_VRAM_ADDR + offset, false);
+        return memAddrToType(types.TileTable, PPU_VRAM_ADDR + offset, false);
     }
 }
 
-fn getSprite(comptime is_cpu: bool, sprite: u16) *SpriteDef {
-    const offset = @sizeOf(SpriteDef) * sprite;
+fn getSprite(comptime is_cpu: bool, sprite: u16) *types.SpriteDef {
+    const offset = @sizeOf(types.SpriteDef) * sprite;
     if (is_cpu) {
         unreachable;
     } else {
-        return memAddrToType(SpriteDef, PPU_SPROM_ADDR + offset, false);
+        return memAddrToType(types.SpriteDef, PPU_SPROM_ADDR + offset, false);
     }
 }
 
-fn getPalette(comptime is_cpu: bool, palette: u16) *ColourPalette {
-    const offset = VRAM_PALETTE_OFFSET + @sizeOf(ColourPalette) * palette;
+fn getPalette(comptime is_cpu: bool, palette: u16) *types.ColourPalette {
+    const offset = VRAM_PALETTE_OFFSET + @sizeOf(types.ColourPalette) * palette;
     if (is_cpu) {
-        return ioAddrToType(ColourPalette, CPU_VRAM_ADDR + offset, true);
+        return ioAddrToType(types.ColourPalette, CPU_VRAM_ADDR + offset, true);
     } else {
-        return memAddrToType(ColourPalette, PPU_VRAM_ADDR + offset, false);
+        return memAddrToType(types.ColourPalette, PPU_VRAM_ADDR + offset, false);
     }
 }
 
-fn getAttribute(comptime is_cpu: bool, attribute: u16) *SpriteAttribute {
-    const offset: u16 = VRAM_ATTR_OFFSET + @sizeOf(SpriteAttribute) * attribute;
+fn getAttribute(comptime is_cpu: bool, attribute: u16) *types.SpriteAttribute {
+    const offset: u16 = VRAM_ATTR_OFFSET + @sizeOf(types.SpriteAttribute) * attribute;
     if (is_cpu) {
-        return ioAddrToType(SpriteAttribute, CPU_VRAM_ADDR + offset, true);
+        return ioAddrToType(types.SpriteAttribute, CPU_VRAM_ADDR + offset, true);
     } else {
-        return memAddrToType(SpriteAttribute, PPU_VRAM_ADDR + offset, false);
+        return memAddrToType(types.SpriteAttribute, PPU_VRAM_ADDR + offset, false);
     }
 }
 
-fn drawSprite2(renderer: *sdl.SDL_Renderer, sprite: *SpriteDef, palette: *ColourPalette, x: u32, y: u32) void {
+fn drawSprite2(renderer: *sdl.SDL_Renderer, sprite: *types.SpriteDef, palette: *types.ColourPalette, x: u32, y: u32) void {
     var sprite_x: u8 = 0;
-    while (sprite_x < SPRITE_WIDTH) : (sprite_x += 1) {
+    while (sprite_x < types.SPRITE_WIDTH) : (sprite_x += 1) {
         var sprite_y: u8 = 0;
-        while (sprite_y < SPRITE_HEIGHT) : (sprite_y += 1) {
+        while (sprite_y < types.SPRITE_HEIGHT) : (sprite_y += 1) {
             const pixel = sprite[sprite_y][sprite_x];
             const colour = palette[pixel];
             const red = if (colour.red == 0b111) u8(255) else 0;
@@ -260,14 +217,14 @@ fn draw(renderer: *sdl.SDL_Renderer, frames: u32) void {
     // Draw the tiles
     const tile_table = getTileTable(false, 0);
     var tile_x: u32 = 0;
-    while (tile_x < NUM_TILES_X) : (tile_x += 1) {
+    while (tile_x < types.NUM_TILES_X) : (tile_x += 1) {
         var tile_y: u32 = 0;
-        while (tile_y < NUM_TILES_Y) : (tile_y += 1) {
+        while (tile_y < types.NUM_TILES_Y) : (tile_y += 1) {
             const tile_entry = tile_table[tile_y][tile_x];
             if (tile_entry.enabled) {
                 const palette = tile_entry.palette;
                 const sprite = tile_entry.sprite;
-                drawSprite2(renderer, getSprite(false, sprite), getPalette(false, palette), tile_x * SPRITE_WIDTH, tile_y * SPRITE_HEIGHT);
+                drawSprite2(renderer, getSprite(false, sprite), getPalette(false, palette), tile_x * types.SPRITE_WIDTH, tile_y * types.SPRITE_HEIGHT);
             }
         }
     }
@@ -275,7 +232,7 @@ fn draw(renderer: *sdl.SDL_Renderer, frames: u32) void {
     // Draw the sprites
     var i: u32 = 0;
     const sprite_table = getSpriteTable(false, 0);
-    while (i < NUM_SPRITE_ENTRIES) : (i += 1) {
+    while (i < types.NUM_SPRITE_ENTRIES) : (i += 1) {
         var entry = &sprite_table[i];
         const attr = getAttribute(false, entry.attribute);
         if (attr.enabled) {
@@ -335,7 +292,7 @@ pub fn main() !void {
     if (!(sdl.SDL_SetHintWithPriority(sdl.SDL_HINT_NO_SIGNAL_HANDLERS, c"1", sdl.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.SDL_bool.SDL_FALSE)) {
         return ConsoleError.SdlInit;
     }
-    const screen = sdl.SDL_CreateWindow(c"Console", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, RES_X, RES_Y, sdl.SDL_WINDOW_RESIZABLE);
+    const screen = sdl.SDL_CreateWindow(c"Console", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, types.RES_X, types.RES_Y, sdl.SDL_WINDOW_RESIZABLE);
     const renderer = sdl.SDL_CreateRenderer(screen, -1, 0) orelse return ConsoleError.SdlInit;
 
     var ignored = sdl.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);

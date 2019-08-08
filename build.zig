@@ -18,7 +18,7 @@ pub fn build(b: *Builder) void {
         "-o",
         "ppu.bin"
     });
-    var exe = b.addExecutable("console", "main.zig");
+    var exe = b.addExecutable("console", "src/main.zig");
     exe.install();
     exe.linkSystemLibrary("SDL2");
     exe.linkSystemLibrary("z80");
@@ -28,6 +28,13 @@ pub fn build(b: *Builder) void {
 
     exe.step.dependOn(&cpu_asm.step);
     exe.step.dependOn(&ppu_asm.step);
+
+    const spriter = b.addExecutable("spriter", "spriter.zig");
+    spriter.addObjectFile("qdbmp_1.0.0/qdbmp.o");
+    spriter.addIncludeDir("qdbmp_1.0.0");
+    spriter.linkSystemLibrary("c");
+    const spriter_step = b.step("spriter", "sprite to binary tool");
+    spriter_step.dependOn(&spriter.step);
 
     b.default_step.dependOn(&exe.step);
 }
