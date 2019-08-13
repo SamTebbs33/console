@@ -200,9 +200,9 @@ fn drawSprite2(renderer: *sdl.SDL_Renderer, sprite: *types.SpriteDef, palette: *
         while (sprite_y < types.SPRITE_HEIGHT) : (sprite_y += 1) {
             const pixel = sprite[sprite_y][sprite_x];
             const colour = palette[pixel];
-            const red = if (colour.red == 0b111) u8(255) else 0;
-            const green = if (colour.green == 0b111) u8(255) else 0;
-            const blue = if (colour.blue == 0b11) u8(255) else 0;
+            const red = @intCast(u8, colour.red) * (255 / 7);
+            const green = @intCast(u8, colour.green) * (255 / 7);
+            const blue = @intCast(u8, colour.blue) * (255 / 7);
             var ignored = sdl.SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
             ignored = sdl.SDL_RenderDrawPoint(renderer, @intCast(c_int, x + sprite_x), @intCast(c_int, y  + sprite_y));
         }
