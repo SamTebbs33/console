@@ -22,7 +22,7 @@ pub fn main() !void {
             const arr: [1]u8 = [_]u8{byte};
             try file.write(arr);
         }
-    } 
+    }
 }
 
 fn charToByte(byte: u8) SpriteErr!u8 {
