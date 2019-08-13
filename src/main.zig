@@ -309,7 +309,6 @@ pub fn main() !void {
     while (true) {
         controller_byte = getControllerState();
         buttons = [_]bool{false} ** @memberCount(Button);
-        if (controller_byte != 255) std.debug.warn("controller: {}\n", controller_byte);
         const ignored2 = z80.Z80ExecuteTStates(&cpu, CPU_CYCLES_PER_FRAME);
         draw(renderer, frames);
         z80.Z80NMI(&cpu);

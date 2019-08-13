@@ -33,6 +33,3 @@ Tile table: 1800B, 30x30 tile entries
 		* Enabled: 1b
 		* Unused: 5b
 		* Sprite no.: 1B
-
-Tools:
-    * PNG files to sprite ROM
