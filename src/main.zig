@@ -25,8 +25,8 @@ var buttons = [_]bool{false} ** @memberCount(Button);
 
 // Memory
 // General purpose RAM
-const GPR_RAM_SIZE = 64 * 1024 - CPU_ROM_SIZE;
-var gpr_ram = [_]u8{0} ** GPR_RAM_SIZE;
+const CPU_RAM_SIZE = 64 * 1024 - CPU_ROM_SIZE;
+var cpu_ram = [_]u8{0} ** CPU_RAM_SIZE;
 // Sprite ROM
 const SPR_ROM_SIZE = 8 * 1024;
 var spr_rom = @embedFile("../sprites.bin");
@@ -107,7 +107,7 @@ fn getMappedMem(is_cpu: bool, address: u16) *u8 {
     if (is_cpu) {
         return switch (address) {
             0 ... CPU_ROM_SIZE - 1 => &cpu_rom[address],
-            CPU_ROM_SIZE ... CPU_ROM_SIZE + GPR_RAM_SIZE - 1 => &gpr_ram[address - CPU_ROM_SIZE],
+            CPU_ROM_SIZE ... CPU_ROM_SIZE + CPU_RAM_SIZE - 1 => &cpu_ram[address - CPU_ROM_SIZE],
             else => unreachable
         };
     } else {
