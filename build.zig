@@ -8,15 +8,19 @@ pub fn build(b: *Builder) void {
 
     var cpu_asm = b.addSystemCommand([_][]const u8{
         "z80asm",
-        "cpu.s",
+        "src/cpu.s",
+        "-I",
+        "src",
         "-o",
-        "cpu.bin"
+        "zig-cache/cpu.bin"
     });
     var ppu_asm = b.addSystemCommand([_][]const u8{
         "z80asm",
-        "ppu.s",
+        "src/ppu.s",
+        "-I",
+        "src",
         "-o",
-        "ppu.bin"
+        "zig-cache/ppu.bin"
     });
     var exe = b.addExecutable("console", "src/main.zig");
     exe.install();

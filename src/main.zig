@@ -35,10 +35,10 @@ const VRAM_SIZE = 8 * 1024;
 var vram = [_]u8{0} ** VRAM_SIZE;
 // CPU firmware ROM
 const CPU_ROM_SIZE = 32 * 1024;
-var cpu_rom = @embedFile("../cpu.bin");
+var cpu_rom = @embedFile("../zig-cache/cpu.bin");
 // PPU firmware ROM
 const PPU_ROM_SIZE = 8 * 1024;
-var ppu_rom = @embedFile("../ppu.bin");
+var ppu_rom = @embedFile("../zig-cache/ppu.bin");
 // Bytes used by controller
 const CONTROLLER_SIZE = 1;
 var controller_byte: u8 = 0;
