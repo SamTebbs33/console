@@ -71,19 +71,6 @@ const CPU_CYCLES_PER_FRAME = NANOS_PER_FRAME / NANOS_PER_CPU_CYCLE;
 var nanos: u64 = 0;
 
 comptime {
-    assert(cpu_rom.len <= CPU_ROM_SIZE);
-    assert(ppu_rom.len <= PPU_ROM_SIZE);
-    assert(spr_rom.len <= SPR_ROM_SIZE);
-
-    assert(@sizeOf(types.Pixel) == 1);
-    assert(@sizeOf(types.Colour) == 1);
-    assert(@sizeOf(types.ColourPalette) == 16);
-    assert(@sizeOf(types.SpriteTable) == 320);
-    assert(@sizeOf(types.SpriteEntry) == 5);
-    assert(@sizeOf(types.SpriteAttribute) == 1);
-    assert(@sizeOf(types.TileTable) == 1800);
-    assert(@sizeOf(types.TileEntry) == 2);
-    assert(@sizeOf(types.SpriteDef) == 64);
 }
 
 fn memAddrToType(comptime t: type, addr: u16, is_cpu: bool) *t {
@@ -286,6 +273,12 @@ fn updateControllerState(event: *sdl.SDL_Event) void {
 }
 
 pub fn main() !void {
+    if (cpu_rom.len > CPU_ROM_SIZE)
+        std.debug.warn("CPU ROM size is greater than {}\n", u32(CPU_ROM_SIZE));
+    if (ppu_rom.len > PPU_ROM_SIZE)
+        std.debug.warn("PPU ROM size is greater than {}\n", u32(PPU_ROM_SIZE));
+    if (spr_rom.len > SPR_ROM_SIZE)
+        std.debug.warn("SPR ROM size is greater than {}\n", u32(SPR_ROM_SIZE));
     if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
         return ConsoleError.SdlInit;
     }
