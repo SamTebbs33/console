@@ -345,7 +345,6 @@ pub fn main() !void {
     var last_frame: u64 = std.time.milliTimestamp();
 
     while (true) {
-        controller_byte = getControllerState();
         buttons = [_]bool{false} ** @memberCount(Button);
         const ignored2 = z80.Z80ExecuteTStates(&cpu, CPU_CYCLES_PER_FRAME);
         draw(renderer, frames);
@@ -367,6 +366,8 @@ pub fn main() !void {
                     return;
                 } else {
                     updateControllerState(&event);
+                    controller_byte = getControllerState();
+                    if (controller_byte != 255) std.debug.warn("{}\n", controller_byte);
                 }
             }
             // Sleep a millisecond
