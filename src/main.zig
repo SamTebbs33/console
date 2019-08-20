@@ -1,4 +1,5 @@
 const std = @import("std");
+const os = std.os;
 const assert = std.debug.assert;
 const sdl = @cImport({ @cInclude("SDL2/SDL.h"); });
 const z80 = @cImport({ @cInclude("z80.h"); });
@@ -282,6 +283,11 @@ pub fn main() !void {
     if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
         return ConsoleError.SdlInit;
     }
+
+    cpu.memParam = 1;
+    cpu.ioParam = 1;
+    z80.Z80RESET(&cpu);
+
     if (!(sdl.SDL_SetHintWithPriority(sdl.SDL_HINT_NO_SIGNAL_HANDLERS, c"1", sdl.SDL_HintPriority.SDL_HINT_OVERRIDE) != sdl.SDL_bool.SDL_FALSE)) {
         return ConsoleError.SdlInit;
     }
@@ -294,13 +300,50 @@ pub fn main() !void {
     ignored = sdl.SDL_RenderClear(renderer);
     sdl.SDL_RenderPresent(renderer);
 
-    cpu.memParam = 1;
-    cpu.ioParam = 1;
-    z80.Z80RESET(&cpu);
+    var frames: u32 = 0;
+
+    if (os.argv.len > 1) {
+        const stdin = try std.io.getStdIn();
+        while (true) {
+            var instr_buff = [_]u8{0} ** 64;
+            z80.Z80Debug(&cpu, null, &instr_buff);
+            // Wait for input
+            var buff: [1]u8 = undefined;
+            _ = try stdin.read(buff[0..]);
+            if (buff[0] == 'q')
+                return;
+            // Execute
+            z80.Z80Execute(&cpu);
+            // Show regs and instr
+            std.debug.warn("{} (", instr_buff);
+            var regs = cpu.R1;
+            std.debug.warn("A={},", regs.br.A);
+            std.debug.warn("B={},", regs.br.B);
+            std.debug.warn("C={},", regs.br.C);
+            std.debug.warn("D={},", regs.br.D);
+            std.debug.warn("E={},", regs.br.E);
+            std.debug.warn("H={},", regs.br.H);
+            std.debug.warn("L={},", regs.br.L);
+            std.debug.warn("IXl={},", regs.br.IXl);
+            std.debug.warn("IXh={},", regs.br.IXh);
+            std.debug.warn("IYl={},", regs.br.IYl);
+            std.debug.warn("IYh={},", regs.br.IYh);
+            std.debug.warn("F={},", regs.br.F);
+            std.debug.warn("AF={},", regs.wr.AF);
+            std.debug.warn("BC={},", regs.wr.BC);
+            std.debug.warn("DE={},", regs.wr.DE);
+            std.debug.warn("HL={},", regs.wr.HL);
+            std.debug.warn("IX={},", regs.wr.IX);
+            std.debug.warn("IY={},", regs.wr.IY);
+            std.debug.warn("SP={})", regs.wr.SP);
+            // Draw
+            draw(renderer, frames);
+        }
+    }
 
     var last_update = std.time.milliTimestamp();
     var last_frame: u64 = std.time.milliTimestamp();
-    var frames: u32 = 0;
+
     while (true) {
         controller_byte = getControllerState();
         buttons = [_]bool{false} ** @memberCount(Button);
