@@ -367,7 +367,6 @@ pub fn main() !void {
                 } else {
                     updateControllerState(&event);
                     controller_byte = getControllerState();
-                    if (controller_byte != 255) std.debug.warn("{}\n", controller_byte);
                 }
             }
             // Sleep a millisecond
